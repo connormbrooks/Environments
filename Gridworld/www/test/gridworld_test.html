@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<script type="text/javascript" src="jquery-3.3.1.min.js"></script>
+		<script type="text/javascript" src="../canvas_utilities.js"></script>
+		<script type="text/javascript" src="../gridworlds/gridworld_engine.js"></script>
+		<script type="text/javascript" src="../gridworlds/gridworld_agents.js"></script>
+		<script type="text/javascript" src="../trial_scripts/base_trial.js"> </script>
+		<script type="text/javascript" src="../trial_scripts/chasing_trial.js"></script>
+	</head>
+	<body>
+		<div id="container">
+			<canvas id="canvas", style="width: 450px; height: 600px; margin: 0 auto;" onload=setupGame></canvas>
+			<br/>
+			<div id="buttons" style="width: 450px; margin: 0 auto;">
+				<button onclick="moveup()" style="width: 300px; height: 40px; margin-left: 75px; text-align: center;">UP</button>
+				<br/>
+				<button onclick="moveleft()" style="width: 200px; height: 40px; margin-top: 15px; margin-bottom: 15px; text-align: center;">LEFT</button>
+				<button onclick="moveright()" style="width: 200px; height: 40px; margin-top: 15px; margin-bottom: 15px; margin-left: 45px; text-align: center;">RIGHT</button>
+				<br />
+				<button onclick="movedown()" style="width: 300px; height: 40px; margin-left: 75px; text-align: center;">DOWN</button>
+			</div>
+		<script type="text/javascript">
+			var myAgent = null;
+			function moveup(){ myAgent.buttonReceiver("2");}
+			function movedown(){ myAgent.buttonReceiver("4");}
+			function moveleft(){ myAgent.buttonReceiver("1");}
+			function moveright(){ myAgent.buttonReceiver("3");}
+			window.onload = function setup(){
+				setupGame();
+			}
+		</script>
+		<script type="text/javascript">
+			jQuery.fn.centerElement = function () {
+			   this.css ("position", "absolute");
+			   this.css ("left", ($ (window). width () - this.width ()) / 2 + $ (window). scrollLeft () + "px");
+			   console.log("centered");
+			   return this;
+			}
+			$(document).ready(function(){
+				$("#container").centerElement();
+			});
+		</script>
+
+	</body>
+</html>
