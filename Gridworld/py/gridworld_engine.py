@@ -61,6 +61,30 @@ class GridWorld(object):
 			return True
 		return False
 
+	def enum_valid_states(self):
+		"""
+		Enumerate all valid agent positions in this gridworld
+		Args:
+			(None)
+		Return:
+			list of n-dimensional lists: list of all valid states
+		"""
+		valid_states = []
+		max_state_total = 1
+		for i in range(0, len(self.size)):
+			max_state_total *= self.size[i]
+		for s in range(0, max_state_total):
+			new_state = [s % self.size[0]]
+			slot = s
+			for dim in range(1, len(self.size)):
+				slot = math.floor(slot / self.size[dim-1])
+				dim_index = slot % self.size[dim]
+				new_state.append(slot)
+			if(self.is_cell_allowed(new_state) and not self.check_wall(new_state)):
+				valid_states.append(copy.deepcopy(new_state))
+		return valid_states
+
+
 class GWAgent(object):
 	"""
 	Base class for GridWorld agents. This should be the parent class of all specific agent types.
@@ -107,6 +131,9 @@ class GWAgent(object):
 	def get_state(self):
 		return self.state
 
+	def set_state(self, state):
+		self.state = state
+
 class GWObject(object):
 	"""
 	Base class for GridWorld objects (these objects are assumed to be stationary and not take actions). This should be the parent class of all specific object types (including goals).
@@ -142,6 +169,12 @@ class GWObject(object):
 		pyglet.gl.glVertex2f((self.state[0]+1)*sizing[0], (self.state[1]+0.5)*sizing[1]) #right middle of cell
 		pyglet.gl.glVertex2f((self.state[0]+0.5)*sizing[0], (self.state[1]+1)*sizing[1]) #bottom middle of cell
 		pyglet.gl.glEnd()
+
+	def get_state(self):
+		return self.state
+
+	def set_state(self, state):
+		self.state = state
 
 class GridWorldGUI(object):
 	"""
@@ -302,12 +335,86 @@ class GridWorldEnvironment(object):
 		self.agent_transitions[agent_ID] = transition
 
 	def set_agent_reward(self, agent_ID, reward):
-		self.agent_rewards[agent_ID, reward]
+		self.agent_rewards[agent_ID] = reward
+
+	def set_agent_state(self, agent_ID, state):
+		self.agent_dict[agent_ID].set_state(state)
 
 	def agent_action(self, agent_ID, action):
+		"""
+		Execute an agent's action and update environment state
+		Args:
+			agent_ID(string): ID of agent committing the action
+			action(list of floats): action chosen by agent
+		Return:
+			(None)
+		"""
 		old_state = copy.deepcopy(self.get_state())
-		new_state = self.agent_transitions[agent_ID](old_state, agent_ID, action)
+		new_state = self.agent_transitions[agent_ID](self.gridworld, old_state, agent_ID, action)
+		#for now, we are assuming agent's action only update their own states
+		self.agent_dict[agent_ID].set_state(new_state["agents"][agent_ID])
 		agent_reward = self.agent_rewards[agent_ID](agent_ID, old_state, action, new_state)
 		for agent_ID in self.agent_dict:
 			self.agent_dict[agent_ID].alert_new_state(new_state)
+
+	def get_state(self):
+		"""
+		Return full representation of environment state
+		Args:
+			(None)
+		Return:
+			dict
+		"""
+		state = {}
+		state["gridworld"] = self.gridworld
+		agent_ID_list = list(self.agent_dict.keys())
+		state["agents"] = {}
+		for agent_ID in agent_ID_list:
+			state["agents"][agent_ID] = self.agent_dict[agent_ID].get_state()
+		object_ID_list = list(self.object_dict.keys())
+		state["objects"] = {}
+		for object_ID in object_ID_list:
+			state["objects"][object_ID] = self.object_dict[object_ID].get_state()
+		return state
+
+class GridWorldEnvironmentPO(GridWorldEnvironment):
+	"""
+	Base class for partially observable gridworld enviornment, in which each agent has an observation function
+	"""
+	def __init__(self, gridworld, agent_dict, object_dict, transition, reward, observation):
+		"""
+		Args:
+			gridworld (GridWorld): underlying gridworld object
+			agent_dict (dict of GWAgent objects): dictionary of all agents in this gridworld
+			object_dict (dict of GWObject objects): dictionary of all objects in this gridworld
+			transition (function): base transition function (can be overridden for specific agents)
+			reward (function): base reward function (can be overridden for specific agents)
+			observation (function): base observation function (can be overridden for specific agents)
+		return:
+			(None)
+		"""
+		super().__init__(gridworld, agent_dict, object_dict, transition, reward)
+		agent_ID_list = list(self.agent_dict.keys())
+		self.agent_observations = {}
+		for agent_ID in agent_ID_list:
+			self.set_agent_observation(agent_ID, observation)
+
+	def set_agent_observation(self, agent_ID, observation):
+		self.agent_observations[agent_ID] = observation
+
+	def agent_action(self, agent_ID, action):
+		"""
+		Execute an agent's action and update environment state
+		Args:
+			agent_ID(string): ID of agent committing the action
+			action(list of floats): action chosen by agent
+		Return:
+			(None)
+		"""
+		old_state = copy.deepcopy(self.get_state())
+		new_state = self.agent_transitions[agent_ID](self.gridworld, old_state, agent_ID, action)
+		agent_reward = self.agent_rewards[agent_ID](agent_ID, old_state, action, new_state)
+		for agent_ID in self.agent_dict:
+			#pass in the new state filtered through the agent's observation function
+			self.agent_dict[agent_ID].alert_new_state(self.agent_observations[agent_ID](new_state))
 
